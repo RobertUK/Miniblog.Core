@@ -1,13 +1,21 @@
 namespace Miniblog.Core
 {
     using Microsoft.AspNetCore.Authentication.Cookies;
+    using Microsoft.AspNetCore.Authentication.JwtBearer;
+    using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+    using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.Hosting;
     using Microsoft.AspNetCore.Http;
+    using Microsoft.AspNetCore.Identity;
+    using Microsoft.AspNetCore.Mvc.Authorization;
     using Microsoft.Extensions.Configuration;
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.DependencyInjection.Extensions;
     using Microsoft.Extensions.Hosting;
+    using Microsoft.Identity.Web;
+    using Microsoft.Identity.Web.UI;
+    using Microsoft.IdentityModel.Logging;
 
     using Miniblog.Core.Services;
 
@@ -43,6 +51,7 @@ namespace Miniblog.Core
         /// <remarks>This method gets called by the runtime. Use this method to configure the HTTP request pipeline.</remarks>
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
+            IdentityModelEventSource.ShowPII = true;
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
@@ -71,7 +80,9 @@ namespace Miniblog.Core
             }
 
             app.UseMetaWeblog("/metaweblog");
-            app.UseAuthentication();
+            //app.UseAuthentication();
+
+            
 
             app.UseOutputCaching();
             app.UseWebMarkupMin();
@@ -90,8 +101,12 @@ namespace Miniblog.Core
         /// <remarks>This method gets called by the runtime. Use this method to add services to the container.</remarks>
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddControllersWithViews();
+            //services.AddControllersWithViews()
+            //    .AddMicrosoftIdentityUI();
             services.AddRazorPages();
+
+            services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme);
+
 
             services.AddSingleton<IUserServices, BlogUserServices>();
             services.AddSingleton<IBlogService, FileBlogService>();
@@ -116,15 +131,44 @@ namespace Miniblog.Core
                     };
                 });
 
-            // Cookie authentication.
-            services
-                .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-                .AddCookie(
-                    options =>
-                    {
-                        options.LoginPath = "/login/";
-                        options.LogoutPath = "/logout/";
-                    });
+            //// Cookie authentication.
+            //services
+            //    .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+            //    .AddCookie(
+            //        options =>
+            //        {
+            //            options.LoginPath = "/login/";
+            //            options.LogoutPath = "/logout/";
+            //        });
+
+            //services.Configure<CookiePolicyOptions>(options =>
+            //{
+            //    // This lambda determines whether user consent 
+            //    // for non-essential cookies is needed for a given request.
+            //    options.CheckConsentNeeded = context => true;
+            //    options.MinimumSameSitePolicy = SameSiteMode.Unspecified;
+
+            //    // Handling SameSite cookie according to 
+            //    // https://docs.microsoft.com/en-us/aspnet/core/security/samesite?view=aspnetcore-3.1
+            //    options.HandleSameSiteCookieCompatibility();
+            //});
+
+            //services.AddMicrosoftIdentityWebAppAuthentication(Configuration,"AzureAd");
+            services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
+              .AddMicrosoftIdentityWebApp(Configuration.GetSection("AzureAd"))
+                  .EnableTokenAcquisitionToCallDownstreamApi()
+                      .AddMicrosoftGraph(Configuration.GetSection("DownstreamApi"))
+                      .AddInMemoryTokenCaches();
+
+            services.AddAuthentication()
+                      .AddMicrosoftIdentityWebApi(Configuration.GetSection("AzureAd"),
+                                                  JwtBearerDefaults.AuthenticationScheme)
+                      .EnableTokenAcquisitionToCallDownstreamApi();
+
+          //  services.AddMicrosoftIdentityWebAppAuthentication(Configuration, "AzureAd");
+
+            services.AddControllersWithViews().AddMicrosoftIdentityUI();
+
 
             // HTML minification (https://github.com/Taritsyn/WebMarkupMin)
             services

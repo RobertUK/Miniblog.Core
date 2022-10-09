@@ -3,6 +3,7 @@ namespace Miniblog.Core.Controllers
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.Extensions.Options;
+    using Microsoft.Identity.Web.Resource;
 
     using Miniblog.Core.Models;
     using Miniblog.Core.Services;
@@ -10,12 +11,20 @@ namespace Miniblog.Core.Controllers
     using System;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
+    using System.Net;
+    using System.Net.Http;
+    using System.Security.Claims;
     using System.Text.RegularExpressions;
     using System.Threading.Tasks;
     using System.Xml;
 
     using WebEssentials.AspNetCore.Pwa;
 
+ 
+
+    // GET: api/values
+
+    [Authorize]
     public class BlogController : Controller
     {
         private readonly IBlogService blog;
@@ -148,10 +157,20 @@ namespace Miniblog.Core.Controllers
             return this.Redirect("/");
         }
 
-        [Route("/blog/edit/{id?}")]
-        [HttpGet, Authorize]
+        //[Route("/blog/edit/{id?}")]
+        /// <summary>
+        /// The web API will accept only tokens that have the `access_as_user` scope for
+        /// this API.
+        /// </summary>
+        const string scopeRequiredByApi = "access_as_admin";
+
+        // GET: api/values
+        [HttpGet]
+        [RequiredScope(scopeRequiredByApi)]
         public async Task<IActionResult> Edit(string? id)
         {
+         
+            //const string scopeRequiredByAPI = "access_as_user";
             var categories = await this.blog.GetCategories().ToListAsync();
             categories.Sort();
             this.ViewData[Constants.AllCats] = categories;
@@ -170,10 +189,23 @@ namespace Miniblog.Core.Controllers
             return post is null ? this.NotFound() : (IActionResult)this.View(post);
         }
 
-        [Route("/{page:int?}")]
+        [Microsoft.AspNetCore.Mvc.Route("/{page:int?}")]
         [OutputCache(Profile = "default")]
         public async Task<IActionResult> Index([FromRoute]int page = 0)
         {
+
+            // The Scope claim tells you what permissions the client application has in the service.
+            // In this case we look for a scope value of access_as_user, or full access to the service as the user.
+            var scopeClaim = ClaimsPrincipal.Current.FindFirst("http://schemas.microsoft.com/identity/claims/scope");
+            if (scopeClaim == null || (!scopeClaim.Value.Contains("access_as_user")))
+            {
+                throw new System.Web.Http.HttpResponseException(new HttpResponseMessage { StatusCode = HttpStatusCode.Unauthorized, ReasonPhrase = "The Scope claim does not contain 'access_as_user' or scope claim not found" });
+            }
+
+            // A user's To Do list is keyed off of the NameIdentifier claim, which contains an immutable, unique identifier for the user.
+            Claim subject = ClaimsPrincipal.Current.FindFirst(ClaimTypes.NameIdentifier);
+
+         
             // get published posts.
             var posts = this.blog.GetPosts();
 
