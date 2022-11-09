@@ -18,6 +18,8 @@ namespace Miniblog.Core
     using Microsoft.IdentityModel.Logging;
 
     using Miniblog.Core.Services;
+    using System.IdentityModel.Tokens.Jwt;
+    using System.Security.Claims;
 
     using WebEssentials.AspNetCore.OutputCaching;
 
@@ -29,6 +31,15 @@ namespace Miniblog.Core
     using IWmmLogger = WebMarkupMin.Core.Loggers.ILogger;
     using MetaWeblogService = Miniblog.Core.Services.MetaWeblogService;
     using WmmNullLogger = WebMarkupMin.Core.Loggers.NullLogger;
+
+
+    public static class AdminAuthorizationPolicy
+    {
+        public static string Name => "Admin";
+
+        public static void Build(AuthorizationPolicyBuilder builder) =>
+            builder.RequireClaim(ClaimTypes.Role, "Admin");
+    }
 
     public class Startup
     {
@@ -62,12 +73,12 @@ namespace Miniblog.Core
                 app.UseHsts();
             }
 
-            app.Use(
-                (context, next) =>
-                {
-                    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
-                    return next();
-                });
+            //app.Use(
+            //    (context, next) =>
+            //    {
+            //        context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+            //        return next();
+            //    });
 
             app.UseStatusCodePagesWithReExecute("/Shared/Error");
             app.UseWebOptimizer();
@@ -89,6 +100,7 @@ namespace Miniblog.Core
 
             app.UseRouting();
 
+            app.UseAuthentication(); //add this line 
             app.UseAuthorization();
 
             app.UseEndpoints(
@@ -152,7 +164,7 @@ namespace Miniblog.Core
             //    // https://docs.microsoft.com/en-us/aspnet/core/security/samesite?view=aspnetcore-3.1
             //    options.HandleSameSiteCookieCompatibility();
             //});
-
+            // JwtSecurityTokenHandler.DefaultMapInboundClaims = false;
             //services.AddMicrosoftIdentityWebAppAuthentication(Configuration,"AzureAd");
             services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
               .AddMicrosoftIdentityWebApp(Configuration.GetSection("AzureAd"))
@@ -165,7 +177,14 @@ namespace Miniblog.Core
                                                   JwtBearerDefaults.AuthenticationScheme)
                       .EnableTokenAcquisitionToCallDownstreamApi();
 
-          //  services.AddMicrosoftIdentityWebAppAuthentication(Configuration, "AzureAd");
+            //  services.AddMicrosoftIdentityWebAppAuthentication(Configuration, "AzureAd");
+
+
+            services.AddAuthorization(options =>
+            {
+                options.AddPolicy(AdminAuthorizationPolicy.Name,
+                                  AdminAuthorizationPolicy.Build);
+            });
 
             services.AddControllersWithViews().AddMicrosoftIdentityUI();
 

@@ -24,7 +24,7 @@ namespace Miniblog.Core.Controllers
 
     // GET: api/values
 
-    [Authorize]
+
     public class BlogController : Controller
     {
         private readonly IBlogService blog;
@@ -144,7 +144,8 @@ namespace Miniblog.Core.Controllers
         }
 
         [Route("/blog/deletepost/{id}")]
-        [HttpPost, Authorize, AutoValidateAntiforgeryToken]
+        [Authorize("Admin")]
+        [HttpPost, AutoValidateAntiforgeryToken]
         public async Task<IActionResult> DeletePost(string id)
         {
             var existing = await this.blog.GetPostById(id).ConfigureAwait(false);
@@ -166,10 +167,12 @@ namespace Miniblog.Core.Controllers
 
         // GET: api/values
         [HttpGet]
+        [ Authorize("Admin")]
         [RequiredScope(scopeRequiredByApi)]
         public async Task<IActionResult> Edit(string? id)
         {
-         
+
+            var a = User;
             //const string scopeRequiredByAPI = "access_as_user";
             var categories = await this.blog.GetCategories().ToListAsync();
             categories.Sort();
@@ -191,21 +194,25 @@ namespace Miniblog.Core.Controllers
 
         [Microsoft.AspNetCore.Mvc.Route("/{page:int?}")]
         [OutputCache(Profile = "default")]
+       
         public async Task<IActionResult> Index([FromRoute]int page = 0)
         {
 
+
+            var a = User;
+            //var claimsIdentity = (ClaimsIdentity)System.Security.Principal.Identity;
             // The Scope claim tells you what permissions the client application has in the service.
             // In this case we look for a scope value of access_as_user, or full access to the service as the user.
-            var scopeClaim = ClaimsPrincipal.Current.FindFirst("http://schemas.microsoft.com/identity/claims/scope");
-            if (scopeClaim == null || (!scopeClaim.Value.Contains("access_as_user")))
-            {
-                throw new System.Web.Http.HttpResponseException(new HttpResponseMessage { StatusCode = HttpStatusCode.Unauthorized, ReasonPhrase = "The Scope claim does not contain 'access_as_user' or scope claim not found" });
-            }
+            //var scopeClaim = ClaimsPrincipal.Current.FindFirst("http://schemas.microsoft.com/identity/claims/scope");
+            //if (scopeClaim == null || (!scopeClaim.Value.Contains("access_as_user")))
+            //{
+            //    throw new System.Web.Http.HttpResponseException(new HttpResponseMessage { StatusCode = HttpStatusCode.Unauthorized, ReasonPhrase = "The Scope claim does not contain 'access_as_user' or scope claim not found" });
+            //}
 
             // A user's To Do list is keyed off of the NameIdentifier claim, which contains an immutable, unique identifier for the user.
-            Claim subject = ClaimsPrincipal.Current.FindFirst(ClaimTypes.NameIdentifier);
+            // Claim subject = ClaimsPrincipal.Current.FindFirst(ClaimTypes.NameIdentifier);
 
-         
+
             // get published posts.
             var posts = this.blog.GetPosts();
 
@@ -225,6 +232,7 @@ namespace Miniblog.Core.Controllers
         }
 
         [Route("/blog/{slug?}")]
+        [Authorize("Admin")]
         [OutputCache(Profile = "default")]
         public async Task<IActionResult> Post(string slug)
         {
@@ -239,7 +247,7 @@ namespace Miniblog.Core.Controllers
         public IActionResult Redirects(string slug) => this.LocalRedirectPermanent($"/blog/{slug}");
 
         [Route("/blog/{slug?}")]
-        [HttpPost, Authorize, AutoValidateAntiforgeryToken]
+        [HttpPost,  Authorize("Admin"), AutoValidateAntiforgeryToken]
         [SuppressMessage("Globalization", "CA1308:Normalize strings to uppercase", Justification = "Consumer preference.")]
         public async Task<IActionResult> UpdatePost(Post post)
         {
